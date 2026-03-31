@@ -27,21 +27,35 @@ type FlowState = "landing" | "loading" | "review";
 export function ChatFlow() {
   const [input, setInput] = useState("");
   const [flowState, setFlowState] = useState<FlowState>("landing");
-  const [requirements, setRequirements] = useState<Requirement[]>([]);
+  const [mustHaves, setMustHaves] = useState<Requirement[]>([]);
+  const [niceToHaves, setNiceToHaves] = useState<Requirement[]>([]);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-resize textarea
+  const allReqs = [...mustHaves, ...niceToHaves];
+  const vagueCount = allReqs.filter((r) => r.quality === "vague").length;
+  const canContinue = allReqs.length > 0 && vagueCount === 0;
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     e.target.style.height = "auto";
     e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
   };
 
+  const parseReqs = (
+    items: { text: string; quality: string; suggestion: string | null }[],
+    prefix: string
+  ): Requirement[] =>
+    (items || []).map((r, i) => ({
+      id: `${prefix}-${Date.now()}-${i}`,
+      text: r.text,
+      quality: r.quality === "good" ? "good" : "vague",
+      suggestion: r.suggestion,
+    }));
+
   const handleSubmit = async () => {
     const text = input.trim();
     if (!text) return;
-
     setFlowState("loading");
 
     try {
@@ -50,31 +64,18 @@ export function ChatFlow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
       });
-
       const data = await res.json();
-
       if (data.error) {
         setFlowState("landing");
         alert(data.error);
         return;
       }
-
-      const reqs: Requirement[] = (data.requirements || []).map(
-        (r: { text: string; quality: string; suggestion: string | null }, i: number) => ({
-          id: `req-${Date.now()}-${i}`,
-          text: r.text,
-          quality: r.quality === "good" ? "good" : "vague",
-          suggestion: r.suggestion,
-        })
-      );
-
-      setRequirements(reqs);
+      setMustHaves(parseReqs(data.mustHaves, "must"));
+      setNiceToHaves(parseReqs(data.niceToHaves, "nice"));
       setFlowState("review");
     } catch {
       setFlowState("landing");
-      alert(
-        "Failed to connect. Make sure ANTHROPIC_API_KEY is set in .env.local."
-      );
+      alert("Failed to connect. Make sure ANTHROPIC_API_KEY is set in .env.local.");
     }
   };
 
@@ -85,64 +86,156 @@ export function ChatFlow() {
     }
   };
 
-  const startEditing = (id: string) => {
-    const req = requirements.find((r) => r.id === id);
+  // ─── Shared editing helpers ────────────────────────────────────────────
+
+  const updateList = (
+    setter: React.Dispatch<React.SetStateAction<Requirement[]>>,
+    id: string,
+    updater: (r: Requirement) => Requirement
+  ) => setter((prev) => prev.map((r) => (r.id === id ? updater(r) : r)));
+
+  const startEditing = (id: string, list: Requirement[], setter: React.Dispatch<React.SetStateAction<Requirement[]>>) => {
+    const req = list.find((r) => r.id === id);
     if (req) {
       setEditValues((prev) => ({ ...prev, [id]: req.text }));
-      setRequirements((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, isEditing: true } : r))
-      );
+      updateList(setter, id, (r) => ({ ...r, isEditing: true }));
     }
   };
 
-  const saveEdit = (id: string) => {
+  const saveEdit = (id: string, setter: React.Dispatch<React.SetStateAction<Requirement[]>>) => {
     const newText = editValues[id]?.trim();
     if (!newText) return;
-    setRequirements((prev) =>
-      prev.map((r) =>
-        r.id === id
-          ? { ...r, text: newText, isEditing: false, quality: "good", suggestion: null }
-          : r
-      )
-    );
+    updateList(setter, id, (r) => ({
+      ...r,
+      text: newText,
+      isEditing: false,
+      quality: "good",
+      suggestion: null,
+    }));
   };
 
-  const cancelEdit = (id: string) => {
-    setRequirements((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, isEditing: false } : r))
-    );
+  const cancelEdit = (id: string, setter: React.Dispatch<React.SetStateAction<Requirement[]>>) => {
+    updateList(setter, id, (r) => ({ ...r, isEditing: false }));
   };
 
-  const removeRequirement = (id: string) => {
-    setRequirements((prev) => prev.filter((r) => r.id !== id));
+  const removeReq = (id: string, setter: React.Dispatch<React.SetStateAction<Requirement[]>>) => {
+    setter((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const applySuggestion = (id: string) => {
-    const req = requirements.find((r) => r.id === id);
+  const applySuggestion = (id: string, list: Requirement[], setter: React.Dispatch<React.SetStateAction<Requirement[]>>) => {
+    const req = list.find((r) => r.id === id);
     if (req?.suggestion) {
-      startEditing(id);
       setEditValues((prev) => ({ ...prev, [id]: req.suggestion! }));
+      updateList(setter, id, (r) => ({ ...r, isEditing: true }));
     }
   };
 
-  const addRequirement = () => {
+  const addReq = (setter: React.Dispatch<React.SetStateAction<Requirement[]>>) => {
     const newId = `req-${Date.now()}`;
-    setRequirements((prev) => [
+    setter((prev) => [
       ...prev,
       { id: newId, text: "", quality: "good", suggestion: null, isEditing: true },
     ]);
     setEditValues((prev) => ({ ...prev, [newId]: "" }));
   };
 
-  const vagueCount = requirements.filter((r) => r.quality === "vague").length;
-  const canContinue = requirements.length > 0 && vagueCount === 0;
-
   const handleContinue = () => {
-    console.log(
-      "Final requirements:",
-      requirements.map((r) => r.text)
-    );
+    console.log("Must haves:", mustHaves.map((r) => r.text));
+    console.log("Nice to haves:", niceToHaves.map((r) => r.text));
   };
+
+  // ─── Render a requirement card ─────────────────────────────────────────
+
+  function ReqCard({
+    req,
+    list,
+    setter,
+    index,
+  }: {
+    req: Requirement;
+    list: Requirement[];
+    setter: React.Dispatch<React.SetStateAction<Requirement[]>>;
+    index: number;
+  }) {
+    return (
+      <motion.div
+        key={req.id}
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25, delay: index * 0.04 }}
+      >
+        <div
+          className={cn(
+            "rounded-xl border-2 p-4 transition-all duration-200",
+            req.quality === "vague"
+              ? "border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/10"
+              : "border-border bg-background"
+          )}
+        >
+          {req.isEditing ? (
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={editValues[req.id] ?? ""}
+                onChange={(e) =>
+                  setEditValues((prev) => ({ ...prev, [req.id]: e.target.value }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveEdit(req.id, setter);
+                  if (e.key === "Escape") cancelEdit(req.id, setter);
+                }}
+                autoFocus
+                className="w-full bg-transparent text-base text-foreground outline-none border-b-2 border-[#00d4aa]/50 pb-1"
+                placeholder="Type a specific requirement..."
+              />
+              <div className="flex gap-2">
+                <button onClick={() => saveEdit(req.id, setter)} className="text-xs font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors">Save</button>
+                <button onClick={() => cancelEdit(req.id, setter)} className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 shrink-0">
+                  {req.quality === "good" ? (
+                    <div className="w-6 h-6 rounded-full bg-[#00d4aa]/15 flex items-center justify-center">
+                      <Check className="w-3.5 h-3.5 text-[#00d4aa]" />
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-amber-400/15 flex items-center justify-center">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                    </div>
+                  )}
+                </div>
+                <p className="flex-1 text-base text-foreground leading-relaxed">{req.text}</p>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => startEditing(req.id, list, setter)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => removeReq(req.id, setter)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+              {req.quality === "vague" && req.suggestion && (
+                <div className="ml-9 flex items-start gap-2">
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    Try: &ldquo;{req.suggestion}&rdquo;
+                  </p>
+                  <button onClick={() => applySuggestion(req.id, list, setter)} className="text-xs font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors whitespace-nowrap mt-0.5">
+                    Apply
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ─── Layout ────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen w-full bg-background flex flex-col">
@@ -168,7 +261,7 @@ export function ChatFlow() {
               </h1>
               <p className="text-lg text-muted-foreground max-w-lg mx-auto">
                 Write a paragraph about what you&apos;re looking for.
-                We&apos;ll extract and review each requirement.
+                We&apos;ll sort them into must-haves and nice-to-haves.
               </p>
             </motion.div>
 
@@ -234,7 +327,7 @@ export function ChatFlow() {
             transition={{ duration: 0.4 }}
             className="flex-1 flex items-start pt-[10vh] justify-center px-6 pb-8"
           >
-            <div className="w-full max-w-2xl space-y-6">
+            <div className="w-full max-w-2xl space-y-8">
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold text-foreground">
                   Review your requirements
@@ -254,135 +347,43 @@ export function ChatFlow() {
                 </p>
               </div>
 
-              {/* Requirement Cards */}
+              {/* Must Haves */}
               <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                  Must haves
+                </h3>
                 <AnimatePresence mode="popLayout">
-                  {requirements.map((req, index) => (
-                    <motion.div
-                      key={req.id}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 300,
-                        damping: 25,
-                        delay: index * 0.05,
-                      }}
-                    >
-                      <div
-                        className={cn(
-                          "rounded-xl border-2 p-4 transition-all duration-200",
-                          req.quality === "vague"
-                            ? "border-amber-400/40 bg-amber-50/50 dark:bg-amber-950/10"
-                            : "border-border bg-background"
-                        )}
-                      >
-                        {req.isEditing ? (
-                          /* ─── Edit Mode ─── */
-                          <div className="space-y-3">
-                            <input
-                              type="text"
-                              value={editValues[req.id] ?? ""}
-                              onChange={(e) =>
-                                setEditValues((prev) => ({
-                                  ...prev,
-                                  [req.id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") saveEdit(req.id);
-                                if (e.key === "Escape") cancelEdit(req.id);
-                              }}
-                              autoFocus
-                              className="w-full bg-transparent text-base text-foreground outline-none border-b-2 border-[#00d4aa]/50 pb-1"
-                              placeholder="Type a specific requirement..."
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => saveEdit(req.id)}
-                                className="text-xs font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => cancelEdit(req.id)}
-                                className="text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          /* ─── Display Mode ─── */
-                          <div className="space-y-2">
-                            <div className="flex items-start gap-3">
-                              {/* Quality Indicator */}
-                              <div className="mt-0.5 shrink-0">
-                                {req.quality === "good" ? (
-                                  <div className="w-6 h-6 rounded-full bg-[#00d4aa]/15 flex items-center justify-center">
-                                    <Check className="w-3.5 h-3.5 text-[#00d4aa]" />
-                                  </div>
-                                ) : (
-                                  <div className="w-6 h-6 rounded-full bg-amber-400/15 flex items-center justify-center">
-                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Text */}
-                              <p className="flex-1 text-base text-foreground leading-relaxed">
-                                {req.text}
-                              </p>
-
-                              {/* Actions */}
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button
-                                  onClick={() => startEditing(req.id)}
-                                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => removeRequirement(req.id)}
-                                  className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Suggestion for vague items */}
-                            {req.quality === "vague" && req.suggestion && (
-                              <div className="ml-9 flex items-start gap-2">
-                                <p className="text-sm text-amber-600 dark:text-amber-400">
-                                  Try: &ldquo;{req.suggestion}&rdquo;
-                                </p>
-                                <button
-                                  onClick={() => applySuggestion(req.id)}
-                                  className="text-xs font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors whitespace-nowrap mt-0.5"
-                                >
-                                  Apply
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
+                  {mustHaves.map((req, i) => (
+                    <ReqCard key={req.id} req={req} list={mustHaves} setter={setMustHaves} index={i} />
                   ))}
                 </AnimatePresence>
+                <button
+                  onClick={() => addReq(setMustHaves)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors pl-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add must-have
+                </button>
               </div>
 
-              {/* Add More */}
-              <Button
-                variant="outline"
-                onClick={addRequirement}
-                className="w-full py-5 text-base rounded-xl border-2 border-[#00d4aa]/30 bg-[#00d4aa]/5 text-[#00d4aa] hover:bg-[#00d4aa]/10 hover:border-[#00d4aa]/50 transition-all duration-300 font-medium"
-              >
-                <Plus className="w-5 h-5 mr-2" />
-                Add another
-              </Button>
+              {/* Nice to Haves */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">
+                  Nice to haves
+                </h3>
+                <AnimatePresence mode="popLayout">
+                  {niceToHaves.map((req, i) => (
+                    <ReqCard key={req.id} req={req} list={niceToHaves} setter={setNiceToHaves} index={i} />
+                  ))}
+                </AnimatePresence>
+                <button
+                  onClick={() => addReq(setNiceToHaves)}
+                  className="flex items-center gap-1.5 text-sm font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors pl-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add nice-to-have
+                </button>
+              </div>
 
               {/* Continue */}
               <div className="pt-2">
@@ -402,11 +403,11 @@ export function ChatFlow() {
                 </Button>
               </div>
 
-              {/* Start Over */}
               <button
                 onClick={() => {
                   setFlowState("landing");
-                  setRequirements([]);
+                  setMustHaves([]);
+                  setNiceToHaves([]);
                   setInput("");
                 }}
                 className="text-sm text-muted-foreground hover:text-foreground transition-colors"

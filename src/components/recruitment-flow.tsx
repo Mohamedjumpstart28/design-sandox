@@ -4,6 +4,7 @@ import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RecruitmentQuestion } from "@/components/recruitment-question";
 import { IntroScreen } from "@/components/v2/intro-screen";
+import { YoeScreen } from "@/components/yoe-screen";
 
 interface Tag {
   id: string;
@@ -71,8 +72,11 @@ const STEPS: StepConfig[] = [
   },
 ];
 
+type Phase = "intro" | "yoe" | "steps";
+
 export function RecruitmentFlow() {
-  const [showIntro, setShowIntro] = useState(true);
+  const [phase, setPhase] = useState<Phase>("intro");
+  const [yearsOfExperience, setYearsOfExperience] = useState("");
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Tag[][]>(STEPS.map(() => []));
 
@@ -92,18 +96,19 @@ export function RecruitmentFlow() {
 
   const handleNext = useCallback(() => {
     if (isLastStep) {
+      console.log("Years of experience:", yearsOfExperience);
       console.log("All answers:", answers);
     } else {
       setCurrentStep((prev) => prev + 1);
     }
-  }, [isLastStep, answers, currentStep]);
+  }, [isLastStep, answers, yearsOfExperience, currentStep]);
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
 
   return (
     <div className="relative min-h-screen w-full bg-background">
-      {/* Progress Bar — only after intro */}
-      {!showIntro && (
+      {/* Progress Bar — only during steps */}
+      {phase === "steps" && (
         <div className="fixed top-0 left-0 right-0 z-50">
           <div className="h-1 w-full bg-border/50">
             <motion.div
@@ -118,7 +123,7 @@ export function RecruitmentFlow() {
 
       {/* Content */}
       <AnimatePresence mode="wait">
-        {showIntro ? (
+        {phase === "intro" && (
           <motion.div
             key="intro"
             initial={{ opacity: 0 }}
@@ -126,9 +131,28 @@ export function RecruitmentFlow() {
             exit={{ opacity: 0, x: -60 }}
             transition={{ duration: 0.35, ease: "easeInOut" }}
           >
-            <IntroScreen onGetStarted={() => setShowIntro(false)} />
+            <IntroScreen onGetStarted={() => setPhase("yoe")} />
           </motion.div>
-        ) : (
+        )}
+
+        {phase === "yoe" && (
+          <motion.div
+            key="yoe"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <YoeScreen
+              onContinue={(yoe) => {
+                setYearsOfExperience(yoe);
+                setPhase("steps");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {phase === "steps" && (
           <motion.div
             key={`step-${currentStep}`}
             initial={{ opacity: 0, x: 60 }}

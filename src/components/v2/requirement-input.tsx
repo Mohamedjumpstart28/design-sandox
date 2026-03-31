@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, GripVertical, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -170,33 +170,22 @@ export function RequirementInput({
   const filledItems = items.filter((item) => item.value.trim().length > 0);
   const canContinue = filledItems.length >= 1;
 
-  const syncItems = useCallback(
-    (updated: RequirementItem[]) => {
-      onItemsChange?.(
-        updated
-          .map((i) => i.value.trim())
-          .filter((v) => v.length > 0)
-      );
-    },
-    [onItemsChange]
-  );
+  useEffect(() => {
+    onItemsChange?.(
+      items.map((i) => i.value.trim()).filter((v) => v.length > 0)
+    );
+  }, [items, onItemsChange]);
 
   const handleChange = (id: string, value: string) => {
     setItems((prev) => {
-      const next = prev.map((item) =>
-        item.id === id ? { ...item, value } : item
-      );
-      syncItems(next);
-      return next;
+      return prev.map((item) => (item.id === id ? { ...item, value } : item));
     });
   };
 
   const handleAdd = () => {
     const newId = `item-${Date.now()}`;
     setItems((prev) => {
-      const next = [...prev, { id: newId, value: "" }];
-      syncItems(next);
-      return next;
+      return [...prev, { id: newId, value: "" }];
     });
     setTimeout(() => {
       inputRefs.current.get(newId)?.focus();
@@ -206,9 +195,7 @@ export function RequirementInput({
   const handleRemove = (id: string) => {
     setItems((prev) => {
       if (prev.length <= 1) return prev;
-      const next = prev.filter((item) => item.id !== id);
-      syncItems(next);
-      return next;
+      return prev.filter((item) => item.id !== id);
     });
   };
 
@@ -239,9 +226,7 @@ export function RequirementInput({
       setItems((prev) => {
         const oldIndex = prev.findIndex((i) => i.id === active.id);
         const newIndex = prev.findIndex((i) => i.id === over.id);
-        const next = arrayMove(prev, oldIndex, newIndex);
-        syncItems(next);
-        return next;
+        return arrayMove(prev, oldIndex, newIndex);
       });
     }
   };
@@ -254,7 +239,6 @@ export function RequirementInput({
     }));
     const next = [...filled, ...newItems];
     setItems(next);
-    syncItems(next);
     setSuggestionsApplied(true);
   };
 
@@ -313,7 +297,7 @@ export function RequirementInput({
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors rounded-lg hover:bg-[#00d4aa]/5"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Give me suggestions
+                  Suggest for Founders Associate role
                 </button>
               </motion.div>
             )}
