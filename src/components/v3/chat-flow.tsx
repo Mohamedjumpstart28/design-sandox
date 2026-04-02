@@ -13,6 +13,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { IntroScreen } from "@/components/v2/intro-screen";
+import { YoeScreen } from "@/components/yoe-screen";
+import { IndustryScreen } from "@/components/industry-screen";
+import { GoHomeButton } from "@/components/go-home-button";
 
 interface Requirement {
   id: string;
@@ -22,11 +26,13 @@ interface Requirement {
   isEditing?: boolean;
 }
 
-type FlowState = "landing" | "loading" | "review";
+type FlowState = "intro" | "yoe" | "industry" | "landing" | "loading" | "review";
 
 export function ChatFlow() {
   const [input, setInput] = useState("");
-  const [flowState, setFlowState] = useState<FlowState>("landing");
+  const [flowState, setFlowState] = useState<FlowState>("intro");
+  const [yearsOfExperience, setYearsOfExperience] = useState<{ min: number; max: number }>({ min: 0, max: 0 });
+  const [industries, setIndustries] = useState<string[]>([]);
   const [mustHaves, setMustHaves] = useState<Requirement[]>([]);
   const [niceToHaves, setNiceToHaves] = useState<Requirement[]>([]);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
@@ -140,6 +146,8 @@ export function ChatFlow() {
   };
 
   const handleContinue = () => {
+    console.log("Years of experience:", yearsOfExperience);
+    console.log("Industries:", industries);
     console.log("Must haves:", mustHaves.map((r) => r.text));
     console.log("Nice to haves:", niceToHaves.map((r) => r.text));
   };
@@ -239,7 +247,57 @@ export function ChatFlow() {
 
   return (
     <div className="min-h-screen w-full bg-background flex flex-col">
+      <GoHomeButton />
       <AnimatePresence mode="wait">
+        {/* ─── Intro ─── */}
+        {flowState === "intro" && (
+          <motion.div
+            key="intro"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <IntroScreen onGetStarted={() => setFlowState("yoe")} />
+          </motion.div>
+        )}
+
+        {/* ─── YoE + Industry ─── */}
+        {flowState === "yoe" && (
+          <motion.div
+            key="yoe"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <YoeScreen
+              onContinue={(data) => {
+                setYearsOfExperience({ min: data.min, max: data.max });
+                setFlowState("industry");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {/* ─── Industry ─── */}
+        {flowState === "industry" && (
+          <motion.div
+            key="industry"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <IndustryScreen
+              onContinue={(selected) => {
+                setIndustries(selected);
+                setFlowState("landing");
+              }}
+            />
+          </motion.div>
+        )}
+
         {/* ─── Landing ─── */}
         {flowState === "landing" && (
           <motion.div

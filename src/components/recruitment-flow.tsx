@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { RecruitmentQuestion } from "@/components/recruitment-question";
 import { IntroScreen } from "@/components/v2/intro-screen";
 import { YoeScreen } from "@/components/yoe-screen";
+import { IndustryScreen } from "@/components/industry-screen";
+import { GoHomeButton } from "@/components/go-home-button";
+import { V1OrganizeScreen } from "@/components/v1-organize-screen";
 
 interface Tag {
   id: string;
@@ -19,64 +22,49 @@ interface StepConfig {
 
 const STEPS: StepConfig[] = [
   {
-    question: "What experience or skills should your ideal candidate have?",
+    question: "What experience should your ideal candidate have?",
     minSelection: 3,
     tags: [
-      { id: "s1", label: "B2B SaaS" },
-      { id: "s2", label: "Startup Experience" },
-      { id: "s3", label: "Team Leadership" },
-      { id: "s4", label: "Product-Led Growth" },
-      { id: "s5", label: "Series A/B" },
-      { id: "s6", label: "Marketplace" },
-      { id: "s7", label: "Enterprise Sales" },
-      { id: "s8", label: "Growth Marketing" },
-      { id: "s9", label: "Fundraising" },
-      { id: "s10", label: "Technical Background" },
-      { id: "s11", label: "Remote Management" },
-      { id: "s12", label: "International Expansion" },
+      { id: "s1", label: "Project Management" },
+      { id: "s2", label: "TikTok Marketing" },
+      { id: "s3", label: "Outbound Sales" },
+      { id: "s4", label: "Lead Generation" },
+      { id: "s5", label: "Social Media Management" },
+      { id: "s6", label: "Performance Marketing" },
+      { id: "s7", label: "Content Writing" },
+      { id: "s8", label: "Financial Modelling" },
+      { id: "s9", label: "Customer Success" },
+      { id: "s10", label: "Account Management" },
+      { id: "s11", label: "Growth Marketing" },
+      { id: "s12", label: "Operations" },
     ],
   },
   {
     question: "What tools should they be proficient in?",
     minSelection: 2,
     tags: [
-      { id: "t1", label: "Figma" },
-      { id: "t2", label: "HubSpot" },
-      { id: "t3", label: "Notion" },
-      { id: "t4", label: "Salesforce" },
-      { id: "t5", label: "Python" },
-      { id: "t6", label: "SQL" },
+      { id: "t1", label: "AI Tools" },
+      { id: "t2", label: "Excel" },
+      { id: "t3", label: "CRM" },
+      { id: "t4", label: "Google Sheets" },
+      { id: "t5", label: "HubSpot" },
+      { id: "t6", label: "Social Media Platforms" },
       { id: "t7", label: "Slack" },
-      { id: "t8", label: "Linear" },
-      { id: "t9", label: "Google Analytics" },
-      { id: "t10", label: "Mixpanel" },
-      { id: "t11", label: "Amplitude" },
-      { id: "t12", label: "Jira" },
-    ],
-  },
-  {
-    question: "What languages should they speak?",
-    minSelection: 1,
-    tags: [
-      { id: "l1", label: "English" },
-      { id: "l2", label: "French" },
-      { id: "l3", label: "Arabic" },
-      { id: "l4", label: "Mandarin" },
-      { id: "l5", label: "Spanish" },
-      { id: "l6", label: "German" },
-      { id: "l7", label: "Portuguese" },
-      { id: "l8", label: "Japanese" },
-      { id: "l9", label: "Hindi" },
-      { id: "l10", label: "Korean" },
+      { id: "t8", label: "Python" },
+      { id: "t9", label: "SQL" },
+      { id: "t10", label: "Power BI / Tableau" },
+      { id: "t11", label: "Figma" },
+      { id: "t12", label: "Notion" },
     ],
   },
 ];
 
-type Phase = "intro" | "yoe" | "steps";
+type Phase = "intro" | "yoe" | "industry" | "steps" | "organize";
 
 export function RecruitmentFlow() {
   const [phase, setPhase] = useState<Phase>("intro");
-  const [yearsOfExperience, setYearsOfExperience] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState<{ min: number; max: number }>({ min: 0, max: 0 });
+  const [industries, setIndustries] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Tag[][]>(STEPS.map(() => []));
 
@@ -96,17 +84,17 @@ export function RecruitmentFlow() {
 
   const handleNext = useCallback(() => {
     if (isLastStep) {
-      console.log("Years of experience:", yearsOfExperience);
-      console.log("All answers:", answers);
+      setPhase("organize");
     } else {
       setCurrentStep((prev) => prev + 1);
     }
-  }, [isLastStep, answers, yearsOfExperience, currentStep]);
+  }, [isLastStep, currentStep]);
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
 
   return (
     <div className="relative min-h-screen w-full bg-background">
+      <GoHomeButton />
       {/* Progress Bar — only during steps */}
       {phase === "steps" && (
         <div className="fixed top-0 left-0 right-0 z-50">
@@ -144,8 +132,25 @@ export function RecruitmentFlow() {
             transition={{ duration: 0.35, ease: "easeInOut" }}
           >
             <YoeScreen
-              onContinue={(yoe) => {
-                setYearsOfExperience(yoe);
+              onContinue={(data) => {
+                setYearsOfExperience({ min: data.min, max: data.max });
+                setPhase("industry");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {phase === "industry" && (
+          <motion.div
+            key="industry"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <IndustryScreen
+              onContinue={(selected) => {
+                setIndustries(selected);
                 setPhase("steps");
               }}
             />
@@ -166,7 +171,28 @@ export function RecruitmentFlow() {
               minSelection={step.minSelection}
               onSelectionChange={handleSelectionChange}
               onNext={handleNext}
-              buttonLabel={isLastStep ? "Finish" : "Continue"}
+              buttonLabel={isLastStep ? "Review & Organize" : "Continue"}
+            />
+          </motion.div>
+        )}
+
+        {phase === "organize" && (
+          <motion.div
+            key="organize"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <V1OrganizeScreen
+              allTags={answers.flat()}
+              onFinish={(mustHaves, niceToHaves) => {
+                console.log("Years of experience:", yearsOfExperience);
+                console.log("Industries:", industries);
+                console.log("Must haves:", mustHaves.map((t) => t.label));
+                console.log("Nice to haves:", niceToHaves.map((t) => t.label));
+              }}
+              onBack={() => setPhase("steps")}
             />
           </motion.div>
         )}

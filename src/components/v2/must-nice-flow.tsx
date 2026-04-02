@@ -5,6 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { RequirementInput } from "@/components/v2/requirement-input";
 import { IntroScreen } from "@/components/v2/intro-screen";
 import { YoeScreen } from "@/components/yoe-screen";
+import { IndustryScreen } from "@/components/industry-screen";
+import { GoHomeButton } from "@/components/go-home-button";
+import { ReviewScreen } from "@/components/v4/review-screen";
+import type { Requirement } from "@/components/v4/types";
 
 interface StepConfig {
   question: string;
@@ -24,14 +28,17 @@ const STEPS: StepConfig[] = [
   },
 ];
 
-type Phase = "intro" | "yoe" | "steps";
+type Phase = "intro" | "yoe" | "industry" | "steps" | "review";
 
 export function MustNiceFlow() {
   const [phase, setPhase] = useState<Phase>("intro");
-  const [yearsOfExperience, setYearsOfExperience] = useState("");
+  const [yearsOfExperience, setYearsOfExperience] = useState<{ min: number; max: number }>({ min: 0, max: 0 });
+  const [industries, setIndustries] = useState<string[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [mustHaves, setMustHaves] = useState<string[]>([]);
   const [niceToHaves, setNiceToHaves] = useState<string[]>([]);
+  const [reviewMustHaves, setReviewMustHaves] = useState<Requirement[]>([]);
+  const [reviewNiceToHaves, setReviewNiceToHaves] = useState<Requirement[]>([]);
 
   const isLastStep = currentStep === STEPS.length - 1;
   const step = STEPS[currentStep];
@@ -50,16 +57,23 @@ export function MustNiceFlow() {
 
   const handleNext = useCallback(() => {
     if (isLastStep) {
-      console.log("Years of experience:", yearsOfExperience);
-      console.log("Must haves:", mustHaves);
-      console.log("Nice to haves:", niceToHaves);
+      const toReq = (text: string, i: number): Requirement => ({
+        id: `req-${Date.now()}-${i}`,
+        text,
+        quality: "unchecked",
+        suggestion: null,
+      });
+      setReviewMustHaves(mustHaves.map((t, i) => toReq(t, i)));
+      setReviewNiceToHaves(niceToHaves.map((t, i) => toReq(t, mustHaves.length + i)));
+      setPhase("review");
     } else {
       setCurrentStep((prev) => prev + 1);
     }
-  }, [isLastStep, yearsOfExperience, mustHaves, niceToHaves]);
+  }, [isLastStep, mustHaves, niceToHaves]);
 
   return (
     <div className="relative min-h-screen w-full bg-background">
+      <GoHomeButton />
       {/* Progress — only during steps */}
       {phase === "steps" && (
         <div className="fixed top-0 left-0 right-0 z-50">
@@ -128,8 +142,25 @@ export function MustNiceFlow() {
             transition={{ duration: 0.35, ease: "easeInOut" }}
           >
             <YoeScreen
-              onContinue={(yoe) => {
-                setYearsOfExperience(yoe);
+              onContinue={(data) => {
+                setYearsOfExperience({ min: data.min, max: data.max });
+                setPhase("industry");
+              }}
+            />
+          </motion.div>
+        )}
+
+        {phase === "industry" && (
+          <motion.div
+            key="industry"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <IndustryScreen
+              onContinue={(selected) => {
+                setIndustries(selected);
                 setPhase("steps");
               }}
             />
@@ -149,7 +180,31 @@ export function MustNiceFlow() {
               subtitle={step.subtitle}
               onItemsChange={handleItemsChange}
               onNext={handleNext}
-              buttonLabel={isLastStep ? "Finish" : "Continue"}
+              buttonLabel={isLastStep ? "Review" : "Continue"}
+            />
+          </motion.div>
+        )}
+
+        {phase === "review" && (
+          <motion.div
+            key="review"
+            initial={{ opacity: 0, x: 60 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -60 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+          >
+            <ReviewScreen
+              mustHaves={reviewMustHaves}
+              niceToHaves={reviewNiceToHaves}
+              onMustHavesChange={setReviewMustHaves}
+              onNiceToHavesChange={setReviewNiceToHaves}
+              onFinish={() => {
+                console.log("Years of experience:", yearsOfExperience);
+                console.log("Industries:", industries);
+                console.log("Must haves:", reviewMustHaves.map((r) => r.text));
+                console.log("Nice to haves:", reviewNiceToHaves.map((r) => r.text));
+              }}
+              onBack={() => setPhase("steps")}
             />
           </motion.div>
         )}
