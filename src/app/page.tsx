@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Tags, TextCursorInput, Layers, GitMerge } from "lucide-react";
+import { ArrowRight, Tags, TextCursorInput } from "lucide-react";
 
 const flows = [
   {
     href: "/v1",
     title: "V1 — Tag Selection",
     description:
-      "Multi-step flow where founders pick from predefined skill tags across 3 categories, then organize into must-haves vs nice-to-haves.",
+      "Multi-step flow where founders pick from predefined skill tags across 2 categories, then organize into must-haves vs nice-to-haves.",
     icon: Tags,
     accent: "from-[#00d4aa]/20 to-[#00d4aa]/5",
     border: "hover:border-[#00d4aa]/40",
@@ -18,28 +18,10 @@ const flows = [
     href: "/v2",
     title: "V2 — Must Haves / Nice to Haves",
     description:
-      "Two-step flow with free-text inputs. Founders list their non-negotiables first, then nice-to-haves.",
+      "Two-step flow with suggested tags and free-text inputs. Founders list their non-negotiables first, then nice-to-haves, with an AI quality review at the end.",
     icon: TextCursorInput,
     accent: "from-[#a78bfa]/20 to-[#a78bfa]/5",
     border: "hover:border-[#a78bfa]/40",
-  },
-  {
-    href: "/v4",
-    title: "V4 — Hybrid",
-    description:
-      "Best of all worlds. Tags as starting suggestions, free-text for custom entries, and AI extraction via paste — all on one screen with must-haves and nice-to-haves.",
-    icon: Layers,
-    accent: "from-[#00d4aa]/20 to-[#00d4aa]/5",
-    border: "hover:border-[#00d4aa]/40",
-  },
-  {
-    href: "/v5",
-    title: "V5 — Capture then Structure",
-    description:
-      "Two-step mental model. First, freely capture everything that matters. Then, intentionally sort into must-haves vs nice-to-haves with drag and quick-assign.",
-    icon: GitMerge,
-    accent: "from-[#06b6d4]/20 to-[#06b6d4]/5",
-    border: "hover:border-[#06b6d4]/40",
   },
 ];
 

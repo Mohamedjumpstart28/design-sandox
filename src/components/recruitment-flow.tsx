@@ -40,7 +40,7 @@ const STEPS: StepConfig[] = [
     ],
   },
   {
-    question: "What tools should they be proficient in?",
+    question: "What tools or skills should they have?",
     minSelection: 2,
     tags: [
       { id: "t1", label: "AI Tools" },

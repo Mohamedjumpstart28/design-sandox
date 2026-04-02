@@ -6,7 +6,6 @@ import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 
 interface Tag {
   id: string;
@@ -44,7 +43,6 @@ export function RecruitmentQuestion({
   buttonLabel = "Continue",
 }: RecruitmentQuestionProps) {
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
-  const [showCustomInput, setShowCustomInput] = useState(false);
   const [customTagValue, setCustomTagValue] = useState("");
 
   useEffect(() => {
@@ -73,7 +71,6 @@ export function RecruitmentQuestion({
         return newSelection;
       });
       setCustomTagValue("");
-      setShowCustomInput(false);
     }
   };
 
@@ -139,60 +136,38 @@ export function RecruitmentQuestion({
                 );
               })}
 
-              {/* Add Custom Tag Button */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: availableTags.length * 0.05 }}
-              >
-                {!showCustomInput ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowCustomInput(true)}
-                    className="px-6 py-6 text-base rounded-full border-2 border-[#00d4aa]/30 bg-[#00d4aa]/10 text-[#00d4aa] hover:bg-[#00d4aa]/20 hover:border-[#00d4aa]/50 transition-all duration-300 font-semibold"
-                  >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Add your own
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={customTagValue}
-                      onChange={(e) => setCustomTagValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleAddCustomTag();
-                        } else if (e.key === "Escape") {
-                          setShowCustomInput(false);
-                          setCustomTagValue("");
-                        }
-                      }}
-                      placeholder="Enter skill..."
-                      className="px-4 py-6 text-base rounded-full border-2 border-[#00d4aa]/50 focus-visible:ring-[#00d4aa]"
-                      autoFocus
-                    />
-                    <Button
-                      size="icon"
-                      onClick={handleAddCustomTag}
-                      className="rounded-full bg-[#00d4aa] hover:bg-[#00d4aa]/90 text-black h-12 w-12"
-                    >
-                      <Plus className="w-5 h-5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => {
-                        setShowCustomInput(false);
-                        setCustomTagValue("");
-                      }}
-                      className="rounded-full h-12 w-12"
-                    >
-                      <X className="w-5 h-5" />
-                    </Button>
-                  </div>
-                )}
-              </motion.div>
             </div>
+
+            {/* Add your own — always-visible text input */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="flex items-center gap-2 rounded-xl border-2 border-border bg-background px-4 py-3.5 transition-all duration-200 focus-within:border-[#00d4aa]/50 focus-within:shadow-[0_0_0_3px_rgba(0,212,170,0.1)] hover:border-border/80"
+            >
+              <input
+                type="text"
+                value={customTagValue}
+                onChange={(e) => setCustomTagValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleAddCustomTag();
+                }}
+                placeholder="Add your own..."
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/40 outline-none"
+              />
+              <button
+                onClick={handleAddCustomTag}
+                disabled={!customTagValue.trim()}
+                className={cn(
+                  "p-1.5 rounded-lg transition-colors",
+                  customTagValue.trim()
+                    ? "text-[#00d4aa] hover:bg-[#00d4aa]/10"
+                    : "text-muted-foreground/30"
+                )}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </motion.div>
 
             {/* Selected Tags Display */}
             <AnimatePresence mode="popLayout">

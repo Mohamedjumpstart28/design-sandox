@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, GripVertical, Sparkles } from "lucide-react";
+import { Plus, X, GripVertical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,17 +41,6 @@ const PLACEHOLDERS = [
   "e.g. Strong financial modeling and data analysis skills",
   "e.g. Experience with fundraising or investor relations",
   "e.g. Track record of cross-functional project delivery",
-];
-
-// ─── Suggestions (Founders Associate) ────────────────────────────────────────
-
-const FOUNDERS_ASSOCIATE_SUGGESTIONS = [
-  "2–4 years experience in consulting, VC, or high-growth startups",
-  "Strong project management skills across multiple workstreams",
-  "Experience with financial modeling and business analysis",
-  "Excellent written communication for investor updates and memos",
-  "Comfortable context-switching between strategy and execution",
-  "Experience supporting C-suite or founders directly",
 ];
 
 // ─── Sortable Item ───────────────────────────────────────────────────────────
@@ -139,9 +128,15 @@ function SortableItem({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
+interface SuggestedTag {
+  id: string;
+  label: string;
+}
+
 interface RequirementInputProps {
   question: string;
   subtitle?: string;
+  suggestedTags?: SuggestedTag[];
   onItemsChange?: (items: string[]) => void;
   onNext?: () => void;
   buttonLabel?: string;
@@ -150,6 +145,7 @@ interface RequirementInputProps {
 export function RequirementInput({
   question,
   subtitle,
+  suggestedTags = [],
   onItemsChange,
   onNext,
   buttonLabel = "Continue",
@@ -157,7 +153,6 @@ export function RequirementInput({
   const [items, setItems] = useState<RequirementItem[]>([
     { id: `item-${Date.now()}`, value: "" },
   ]);
-  const [suggestionsApplied, setSuggestionsApplied] = useState(false);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   const sensors = useSensors(
@@ -231,16 +226,43 @@ export function RequirementInput({
     }
   };
 
-  const handleSuggest = () => {
-    const filled = items.filter((i) => i.value.trim().length > 0);
-    const newItems = FOUNDERS_ASSOCIATE_SUGGESTIONS.map((s, i) => ({
-      id: `sug-${Date.now()}-${i}`,
-      value: s,
-    }));
-    const next = [...filled, ...newItems];
-    setItems(next);
-    setSuggestionsApplied(true);
+  const handleAddTag = (label: string) => {
+    // Check if already added
+    const alreadyExists = items.some(
+      (i) => i.value.trim().toLowerCase() === label.toLowerCase()
+    );
+    if (alreadyExists) return;
+
+    // Find the first empty row and fill it, or add a new row
+    const emptyIndex = items.findIndex((i) => i.value.trim() === "");
+    if (emptyIndex !== -1) {
+      setItems((prev) =>
+        prev.map((item, idx) =>
+          idx === emptyIndex ? { ...item, value: label } : item
+        )
+      );
+    } else {
+      setItems((prev) => [
+        ...prev,
+        { id: `tag-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`, value: label },
+      ]);
+    }
   };
+
+  const handleRemoveTag = (label: string) => {
+    setItems((prev) => {
+      const filtered = prev.filter(
+        (i) => i.value.trim().toLowerCase() !== label.toLowerCase()
+      );
+      return filtered.length === 0
+        ? [{ id: `item-${Date.now()}`, value: "" }]
+        : filtered;
+    });
+  };
+
+  const filledValues = items
+    .map((i) => i.value.trim().toLowerCase())
+    .filter(Boolean);
 
   const setInputRef = (id: string, el: HTMLInputElement | null) => {
     if (el) inputRefs.current.set(id, el);
@@ -285,20 +307,38 @@ export function RequirementInput({
             transition={{ duration: 0.5, delay: 0.1 }}
             className="flex flex-col justify-start pt-[8vh] space-y-4"
           >
-            {/* Suggest Button — only show if not yet used */}
-            {!suggestionsApplied && (
+            {/* Suggested Tags */}
+            {suggestedTags.length > 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.2 }}
+                transition={{ delay: 0.15 }}
+                className="space-y-1.5"
               >
-                <button
-                  onClick={handleSuggest}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[#00d4aa] hover:text-[#00d4aa]/80 transition-colors rounded-lg hover:bg-[#00d4aa]/5"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Suggest for Founders Associate role
-                </button>
+                <p className="text-xs text-muted-foreground/60">Suggested</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedTags.map((tag) => {
+                    const isAdded = filledValues.includes(tag.label.toLowerCase());
+                    return (
+                      <button
+                        key={tag.id}
+                        onClick={() =>
+                          isAdded
+                            ? handleRemoveTag(tag.label)
+                            : handleAddTag(tag.label)
+                        }
+                        className={cn(
+                          "px-3.5 py-2 text-sm font-medium rounded-full border-2 transition-all duration-200",
+                          isAdded
+                            ? "bg-[#00d4aa] border-[#00d4aa] text-black hover:bg-[#00d4aa]/80 hover:border-[#00d4aa]/80"
+                            : "border-border bg-background hover:border-[#00d4aa]/50 hover:bg-[#00d4aa]/5 text-foreground"
+                        )}
+                      >
+                        {tag.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </motion.div>
             )}
 

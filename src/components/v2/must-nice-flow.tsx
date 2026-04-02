@@ -7,12 +7,18 @@ import { IntroScreen } from "@/components/v2/intro-screen";
 import { YoeScreen } from "@/components/yoe-screen";
 import { IndustryScreen } from "@/components/industry-screen";
 import { GoHomeButton } from "@/components/go-home-button";
-import { ReviewScreen } from "@/components/v4/review-screen";
-import type { Requirement } from "@/components/v4/types";
+import { ReviewScreen } from "@/components/v2/review-screen";
+import type { Requirement } from "@/components/v2/types";
+
+interface SuggestedTag {
+  id: string;
+  label: string;
+}
 
 interface StepConfig {
   question: string;
   subtitle: string;
+  tags: SuggestedTag[];
 }
 
 const STEPS: StepConfig[] = [
@@ -20,11 +26,27 @@ const STEPS: StepConfig[] = [
     question: "What are the must-haves you're looking for in a candidate?",
     subtitle:
       "List the non-negotiable skills, experiences, or qualifications.",
+    tags: [
+      { id: "mt1", label: "2+ years of outbound sales experience" },
+      { id: "mt2", label: "Proficient in HubSpot CRM" },
+      { id: "mt3", label: "B2B SaaS sales experience" },
+      { id: "mt4", label: "Proficient in Excel / Google Sheets" },
+      { id: "mt5", label: "Lead generation experience" },
+      { id: "mt6", label: "Proficient in AI tools (ChatGPT, Claude)" },
+    ],
   },
   {
     question: "What would be nice to have?",
     subtitle:
       "These aren't dealbreakers, but would make a candidate stand out.",
+    tags: [
+      { id: "nt1", label: "Performance marketing (paid/SEM)" },
+      { id: "nt2", label: "Proficient in SQL or Python" },
+      { id: "nt3", label: "Financial modelling experience" },
+      { id: "nt4", label: "Content writing experience" },
+      { id: "nt5", label: "Customer success experience" },
+      { id: "nt6", label: "Proficient in Figma" },
+    ],
   },
 ];
 
@@ -178,6 +200,7 @@ export function MustNiceFlow() {
             <RequirementInput
               question={step.question}
               subtitle={step.subtitle}
+              suggestedTags={step.tags}
               onItemsChange={handleItemsChange}
               onNext={handleNext}
               buttonLabel={isLastStep ? "Review" : "Continue"}
